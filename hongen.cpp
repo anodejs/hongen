@@ -25,12 +25,10 @@ int _tmain(int argc, wchar_t* argv[])
     create_cmdline(argc, argv, cmdline, MAX_CMDLINE);
   }
 
-  /* Never stop */
-  while (1) {
-    printf("starting: %ws\n", cmdline);
-    start_child(cmdline);
-  }
-  
+  /* Execute once */
+  printf("starting: %ws\n", cmdline);
+  start_child(cmdline);
+
   return 0;
 }
 
