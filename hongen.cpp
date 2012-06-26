@@ -2,7 +2,7 @@
 
 #define MAX_CMDLINE (3 * 1024)
 #define FATAL_EXIT_CODE 1966
-#define CHK(_desc_, _x_) if (!(_x_)) { printf("%s: 0x%x: %ws", _desc_, GetLastError(), strerror()); exit(FATAL_EXIT_CODE); }
+#define CHK(_desc_, _x_) if (!(_x_)) { printf("%s: 0x%x: %ws", _desc_, GetLastError(), strerror()); return(FATAL_EXIT_CODE); }
 
 static void create_cmdline(int argc, wchar_t** argv, wchar_t* dst, int dst_len);
 static DWORD start_child(wchar_t* cmdline);
@@ -30,6 +30,7 @@ int _tmain(int argc, wchar_t* argv[])
   printf("starting: %ws\n", cmdline);
   do {
     exit_code = start_child(cmdline);
+    printf("exit code: %d\r\n", exit_code);
   }
   while(exit_code != FATAL_EXIT_CODE);
 
