@@ -1,11 +1,11 @@
 #include "stdafx.h"
 
 #define MAX_CMDLINE (3 * 1024)
-#define HOGAN_CMDLINE_FILE_ENV_NAME L"HOGEN_CMDLINE_FILE"
-#define CHK(_desc_, _x_) if (!(_x_)) { printf("%s: 0x%x: %ws", _desc_, GetLastError(), strerror()); exit(1); }
+#define FATAL_EXIT_CODE 1966
+#define CHK(_desc_, _x_) if (!(_x_)) { printf("%s: 0x%x: %ws", _desc_, GetLastError(), strerror()); return(FATAL_EXIT_CODE); }
 
 static void create_cmdline(int argc, wchar_t** argv, wchar_t* dst, int dst_len);
-static void start_child(wchar_t* cmdline);
+static DWORD start_child(wchar_t* cmdline);
 static void print_usage(wchar_t* progname);
 static wchar_t* strerror();
 
@@ -15,6 +15,7 @@ static wchar_t* strerror();
 int _tmain(int argc, wchar_t* argv[])
 {
   wchar_t cmdline[sizeof(wchar_t) * (MAX_CMDLINE + 1)];
+  DWORD exit_code;
 
   if (argc < 2) {
     print_usage(argv[0]);
@@ -25,24 +26,27 @@ int _tmain(int argc, wchar_t* argv[])
     create_cmdline(argc, argv, cmdline, MAX_CMDLINE);
   }
 
-  /* Never stop */
-  while (1) {
-    printf("starting: %ws\n", cmdline);
-    start_child(cmdline);
+  /* Stop only on fatal exit code that requires restart */
+  printf("starting: %ws\n", cmdline);
+  do {
+    exit_code = start_child(cmdline);
+    printf("exit code: %d\r\n", exit_code);
   }
-  
+  while(exit_code != FATAL_EXIT_CODE);
+
   return 0;
 }
 
 /**
  * Starts the executable `app_name` with command line `cmdline` (which should include the executable as well).
  */
-void start_child(wchar_t* non_expended_cmdline) {
+DWORD start_child(wchar_t* non_expended_cmdline) {
   wchar_t cmdline[sizeof(wchar_t) * (MAX_CMDLINE + 1)];
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_limit_info;
   PROCESS_INFORMATION proc_info;
   STARTUPINFO startup;
   HANDLE job_object;
+  DWORD exit_code;
 
   /* Expand environment vars (%XX%) in command line */
   CHK("ExpandEnvironmentStrings", ExpandEnvironmentStrings(non_expended_cmdline, cmdline, MAX_CMDLINE));
@@ -76,9 +80,13 @@ void start_child(wchar_t* non_expended_cmdline) {
   /* Wait for child to exit */
   WaitForSingleObject(proc_info.hProcess, INFINITE);
 
+  CHK("GetExitCodeProcess(process)", GetExitCodeProcess(proc_info.hProcess, &exit_code));
+
   /* Close the job object (will kill all decendents because of JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) */
   CHK("CloseHandle(job)", CloseHandle(job_object));
   CHK("CloseHandle(process)", CloseHandle(proc_info.hProcess));
+
+  return exit_code;
 }
 
 /**
